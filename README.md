@@ -64,7 +64,7 @@ Delivery delays directly impact customer satisfaction and profitability. This pr
 
 ## 🌐 Live Demo
 
-👉 (Add your Streamlit app link here after deployment)
+👉 https://supply-chain-management-and-delivery-predictione2808d-appor-6n.streamlit.app/
 
 ---
 
