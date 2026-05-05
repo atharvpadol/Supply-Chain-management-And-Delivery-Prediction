@@ -66,7 +66,8 @@ model = pickle.load(open("model.pkl", "rb"))
 encoders = pickle.load(open("encoders.pkl", "rb"))
 
 df = pd.read_csv("DataCoSupplyChainDataset.csv", encoding='latin-1')
-df = df[df['Order Status'] != 'CANCELED']
+if 'Order Status' in df.columns:
+    df = df[df['Order Status'] != 'CANCELED']
 
 df['order date (DateOrders)'] = pd.to_datetime(df['order date (DateOrders)'])
 df['shipping date (DateOrders)'] = pd.to_datetime(df['shipping date (DateOrders)'])
