@@ -65,15 +65,33 @@ st.markdown("""
 model = pickle.load(open("model.pkl", "rb"))
 encoders = pickle.load(open("encoders.pkl", "rb"))
 
-df = pd.read_csv("DataCoSupplyChainDataset.csv", encoding='latin-1')
+df = pd.read_csv("DataCoSupplyChainDataset.csv")
+
+# -------- SAFE PREPROCESSING --------
+
+# Handle Order Status (if exists)
 if 'Order Status' in df.columns:
     df = df[df['Order Status'] != 'CANCELED']
 
-df['order date (DateOrders)'] = pd.to_datetime(df['order date (DateOrders)'])
-df['shipping date (DateOrders)'] = pd.to_datetime(df['shipping date (DateOrders)'])
+# Handle date columns safely
+if 'order date (DateOrders)' in df.columns and 'shipping date (DateOrders)' in df.columns:
+    
+    df['order date (DateOrders)'] = pd.to_datetime(df['order date (DateOrders)'])
+    df['shipping date (DateOrders)'] = pd.to_datetime(df['shipping date (DateOrders)'])
 
-df['processing'] = (df['shipping date (DateOrders)'] - df['order date (DateOrders)']).dt.days
-df['delay'] = df['processing'] - df['Days for shipment (scheduled)']
+    df['processing'] = (
+        df['shipping date (DateOrders)'] - df['order date (DateOrders)']
+    ).dt.days
+else:
+    df['processing'] = 0
+
+# Handle delay calculation safely
+if 'Days for shipment (scheduled)' in df.columns:
+    df['delay'] = df['processing'] - df['Days for shipment (scheduled)']
+else:
+    df['delay'] = 0
+
+# Target column
 df['is_late'] = (df['delay'] > 0).astype(int)
 
 # ---------- KPIs ----------
