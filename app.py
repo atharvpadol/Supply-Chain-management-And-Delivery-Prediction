@@ -4,112 +4,88 @@ import numpy as np
 import pickle
 import plotly.express as px
 
+# ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="Supply Chain Intelligence", layout="wide")
 
-# ---------- CSS (Premium UI) ----------
+# ---------- DARK UI CSS ----------
 st.markdown("""
 <style>
 
 /* Background */
 [data-testid="stAppViewContainer"] {
-    background: linear-gradient(135deg, #F8FAFC, #EEF2F7);
+    background: linear-gradient(135deg, #0F172A, #1E293B);
+    color: #E2E8F0;
 }
 
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #1E293B, #334155);
-    color: white;
+/* Text */
+h1, h2, h3, h4, h5, h6, p, span, label {
+    color: #E2E8F0 !important;
 }
 
-/* Cards */
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0px 8px 25px rgba(0,0,0,0.08);
-}
-
-/* KPI */
-.kpi {
-    text-align: center;
-}
-
-/* Hover animation */
-.card:hover {
-    transform: translateY(-5px);
-}
-
-/* Buttons */
-.stButton>button {
-    background: linear-gradient(90deg, #2563EB, #3B82F6);
-    color: white;
-    border-radius: 10px;
-    font-weight: bold;
+/* Metrics */
+[data-testid="stMetric"] {
+    background: #1E293B;
+    padding: 15px;
+    border-radius: 12px;
 }
 
 /* Tabs */
 .stTabs [data-baseweb="tab"] {
     font-size: 18px;
-    padding: 10px;
+    color: #CBD5F5;
+}
+.stTabs [aria-selected="true"] {
+    color: #60A5FA !important;
+    border-bottom: 2px solid #60A5FA;
 }
 
-/* Smooth */
-* {
-    transition: all 0.2s ease-in-out;
+/* Buttons */
+.stButton>button {
+    background: linear-gradient(90deg, #3B82F6, #2563EB);
+    color: white;
+    border-radius: 10px;
+    padding: 10px;
+    border: none;
 }
+.stButton>button:hover {
+    transform: scale(1.05);
+}
+
+/* Plotly */
+.js-plotly-plot {
+    background-color: transparent !important;
+}
+
+/* Footer hide */
+footer {visibility: hidden;}
 
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- LOAD ----------
+# ---------- LOAD MODEL ----------
 model = pickle.load(open("model.pkl", "rb"))
 encoders = pickle.load(open("encoders.pkl", "rb"))
 
+# ---------- LOAD DATA ----------
 df = pd.read_csv("DataCoSupplyChainDataset.csv")
 
-# -------- SAFE PREPROCESSING --------
+# ---------- CLEAN DATA ----------
+df = df[df['Order Status'] != 'CANCELED']
 
-# Handle Order Status (if exists)
-if 'Order Status' in df.columns:
-    df = df[df['Order Status'] != 'CANCELED']
+df['order date (DateOrders)'] = pd.to_datetime(df['order date (DateOrders)'])
+df['shipping date (DateOrders)'] = pd.to_datetime(df['shipping date (DateOrders)'])
 
-# Handle date columns safely
-if 'order date (DateOrders)' in df.columns and 'shipping date (DateOrders)' in df.columns:
-    
-    df['order date (DateOrders)'] = pd.to_datetime(df['order date (DateOrders)'])
-    df['shipping date (DateOrders)'] = pd.to_datetime(df['shipping date (DateOrders)'])
+df['processing'] = (
+    df['shipping date (DateOrders)'] - df['order date (DateOrders)']
+).dt.days
 
-    df['processing'] = (
-        df['shipping date (DateOrders)'] - df['order date (DateOrders)']
-    ).dt.days
-else:
-    df['processing'] = 0
-
-# Handle delay calculation safely
-if 'Days for shipment (scheduled)' in df.columns:
-    df['delay'] = df['processing'] - df['Days for shipment (scheduled)']
-else:
-    df['delay'] = 0
-
-# Target column
+df['delay'] = df['processing'] - df['Days for shipment (scheduled)']
 df['is_late'] = (df['delay'] > 0).astype(int)
 
 # ---------- KPIs ----------
-
-# Late %
 late_pct = df['is_late'].mean() * 100
-
-# Avg Profit (safe)
-if 'Order Profit Per Order' in df.columns:
-    avg_profit = df['Order Profit Per Order'].mean()
-else:
-    avg_profit = 0
-
-# Top region (safe)
-if 'Order Region' in df.columns:
-    top_region = df.groupby('Order Region')['is_late'].mean().idxmax()
-else:
-    top_region = "N/A"
+avg_profit = df['Order Profit Per Order'].mean()
+top_region = df.groupby('Order Region')['is_late'].mean().idxmax()
 
 # ---------- HEADER ----------
 st.markdown("""
@@ -125,23 +101,24 @@ with tab1:
 
     col1, col2, col3 = st.columns(3)
 
-    col1.markdown(f"<div class='card kpi'><h3>🚨 Late Delivery %</h3><h2>{late_pct:.2f}%</h2></div>", unsafe_allow_html=True)
-    col2.markdown(f"<div class='card kpi'><h3>💰 Avg Profit</h3><h2>${avg_profit:.2f}</h2></div>", unsafe_allow_html=True)
-    col3.markdown(f"<div class='card kpi'><h3>🌍 Risk Region</h3><h2>{top_region}</h2></div>", unsafe_allow_html=True)
+    col1.metric("🚨 Late Delivery %", f"{late_pct:.2f}%")
+    col2.metric("💰 Avg Profit", f"${avg_profit:.2f}")
+    col3.metric("🌍 Risk Region", top_region)
 
     st.markdown("### 📈 Delay Distribution")
-    fig1 = px.histogram(df, x="delay", nbins=40, title="Delay Distribution")
+    fig1 = px.histogram(df, x="delay", nbins=40, template="plotly_dark")
     st.plotly_chart(fig1, use_container_width=True)
 
     st.markdown("### 🌍 Regional Risk")
     region = df.groupby('Order Region')['is_late'].mean().sort_values(ascending=False).head(10)
-    fig2 = px.bar(region, x=region.values*100, y=region.index, orientation='h',
-                  title="Top Risk Regions")
+    fig2 = px.bar(region, x=region.values*100, y=region.index,
+                  orientation='h', template="plotly_dark")
     st.plotly_chart(fig2, use_container_width=True)
 
-    st.markdown("### 💰 Profit Impact")
+    st.markdown("### 💰 Profit vs Delay")
     dp = df.groupby('delay')['Order Profit Per Order'].mean().reset_index()
-    fig3 = px.line(dp, x="delay", y="Order Profit Per Order", title="Profit vs Delay")
+    fig3 = px.line(dp, x="delay", y="Order Profit Per Order",
+                   template="plotly_dark")
     st.plotly_chart(fig3, use_container_width=True)
 
 # ================= PREDICTION =================
@@ -179,7 +156,7 @@ with tab2:
 
         if pred == 1:
             st.error("⚠️ High Risk of Delay")
-            st.info("💡 Recommendation: Use faster shipping / check processing")
+            st.info("💡 Recommendation: Use faster shipping / optimize processing")
         else:
             st.success("✅ Likely On-Time")
             st.info("📈 Delivery conditions look optimal")
