@@ -95,9 +95,21 @@ else:
 df['is_late'] = (df['delay'] > 0).astype(int)
 
 # ---------- KPIs ----------
+
+# Late %
 late_pct = df['is_late'].mean() * 100
-avg_profit = df['Order Profit Per Order'].mean()
-top_region = df.groupby('Order Region')['is_late'].mean().idxmax()
+
+# Avg Profit (safe)
+if 'Order Profit Per Order' in df.columns:
+    avg_profit = df['Order Profit Per Order'].mean()
+else:
+    avg_profit = 0
+
+# Top region (safe)
+if 'Order Region' in df.columns:
+    top_region = df.groupby('Order Region')['is_late'].mean().idxmax()
+else:
+    top_region = "N/A"
 
 # ---------- HEADER ----------
 st.markdown("""
